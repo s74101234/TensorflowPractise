@@ -3,7 +3,6 @@ import glob
 import os
 import tensorflow as tf
 import numpy as np
-import matplotlib.image as mpimg
 
 #讀取圖片
 def read_img(path,img_height,img_width):
@@ -14,7 +13,6 @@ def read_img(path,img_height,img_width):
         for im in glob.glob(folder+'/*.jpg'):
             print('reading the images:%s'%(im))
             img=io.imread(im)
-#            img = mpimg.imread(im)
             img_resize=transform.resize(img,(img_height,img_width))
             imgs.append(img_resize)
             labels.append(idx)
@@ -33,37 +31,78 @@ def minibatches(inputs=None, targets=None, batch_size=None, shuffle=False):
             excerpt = slice(start_idx, start_idx + batch_size)
         yield inputs[excerpt], targets[excerpt]
         
-def buildLeNetModel(input_tensor,img_channl,img_height,img_width,num_classes):
+def buildVGG19Model(input_tensor,img_channl,img_height,img_width,num_classes):
     nodes_width,nodes_height,nodes_channl=img_width,img_height,img_channl
     
-    conv1 = tf.layers.conv2d(inputs=input_tensor,filters=20,kernel_size=[5, 5],padding="same",
+    conv1 = tf.layers.conv2d(inputs=input_tensor,filters=64,kernel_size=[3, 3],padding="same",
                              activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
-    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
-    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 20
-    
-    conv2 = tf.layers.conv2d(inputs=pool1,filters=50,kernel_size=[5, 5],padding="same",
+    conv2 = tf.layers.conv2d(inputs=conv1,filters=64,kernel_size=[3, 3],padding="same",
                              activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
-    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 50
-        
+    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 64
+    
+    conv3 = tf.layers.conv2d(inputs=pool2,filters=128,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv4 = tf.layers.conv2d(inputs=conv3,filters=128,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    pool4 = tf.layers.max_pooling2d(inputs=conv4, pool_size=[2, 2], strides=2)
+    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 128
+    
+    conv5 = tf.layers.conv2d(inputs=pool4,filters=256,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv6 = tf.layers.conv2d(inputs=conv5,filters=256,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv7 = tf.layers.conv2d(inputs=conv6,filters=256,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv8 = tf.layers.conv2d(inputs=conv7,filters=256,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    pool8 = tf.layers.max_pooling2d(inputs=conv8, pool_size=[2, 2], strides=2)
+    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 256
+    
+    conv9 = tf.layers.conv2d(inputs=pool8,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv10 = tf.layers.conv2d(inputs=conv9,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv11 = tf.layers.conv2d(inputs=conv10,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv12 = tf.layers.conv2d(inputs=conv11,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    pool12 = tf.layers.max_pooling2d(inputs=conv12, pool_size=[2, 2], strides=2)
+    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 512
+    
+    conv13 = tf.layers.conv2d(inputs=pool12,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv14 = tf.layers.conv2d(inputs=conv13,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv15 = tf.layers.conv2d(inputs=conv14,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    conv16 = tf.layers.conv2d(inputs=conv15,filters=512,kernel_size=[3, 3],padding="same",
+                             activation=tf.nn.relu,kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    pool16 = tf.layers.max_pooling2d(inputs=conv16, pool_size=[2, 2], strides=2)
+    nodes_width = int(nodes_width/2);nodes_height = int(nodes_height/2);nodes_channl = 512
+    
     nodes = int(nodes_width * nodes_height * nodes_channl)
-    reshaped = tf.reshape(pool2,[-1,nodes])
+    reshaped = tf.reshape(pool16,[-1,nodes])
     
-    fc1 = tf.layers.dense(inputs=reshaped, units=500, activation=tf.nn.relu,
+    fc17 = tf.layers.dense(inputs=reshaped, units=4096, activation=tf.nn.relu,
                   kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                   kernel_regularizer=tf.contrib.layers.l2_regularizer(0.003))
     
-    logit = tf.layers.dense(inputs=fc1, units=num_classes, activation=None,
+    fc18 = tf.layers.dense(inputs=fc17, units=4096, activation=tf.nn.relu,
                   kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                   kernel_regularizer=tf.contrib.layers.l2_regularizer(0.003))
-
-    return logit
+    
+    fc19 = tf.layers.dense(inputs=fc18, units=num_classes, activation=None,
+                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                  kernel_regularizer=tf.contrib.layers.l2_regularizer(0.003))
+    
+    return fc19
 
 def saveTrainModels(img_channl,img_height,img_width,num_classes,
                     saveModelPath,epochs,batch_size,x_train,y_train,x_test,y_test):
     x=tf.placeholder(tf.float32,shape=[None,img_width,img_height,img_channl])
     y_=tf.placeholder(tf.int32,shape=[None,])
-    logits = buildLeNetModel(x,img_channl,img_height,img_width,num_classes) 
+    logits = buildVGG19Model(x,img_channl,img_height,img_width,num_classes) 
     
     loss=tf.losses.sparse_softmax_cross_entropy(labels=y_,logits=logits)
     train_op=tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
@@ -108,7 +147,7 @@ if __name__ == "__main__":
     epochs = 50
     dataSplitRatio=0.8
     readDataPath = "./../trainData/fruits/"
-    saveModelPath = "./trainModels/Tensorflow_LeNet.ckpt"
+    saveModelPath = "./trainModels/Tensorflow_VGG16.ckpt"
     
     #載入資料
     data,label = read_img(readDataPath,img_height,img_width)
