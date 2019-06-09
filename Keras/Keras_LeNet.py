@@ -73,12 +73,12 @@ def buildLeNetModel(img_channl,img_height,img_width,num_classes):
 
 if __name__ == "__main__":
     #參數設定
-    img_height, img_width, img_channl = 200, 200 , 3
+    img_height, img_width, img_channl = 28, 28 , 3
     num_classes = 5
     batch_size = 20
     epochs = 50
     dataSplitRatio=0.8
-    readDataPath = "./../trainData/fruits/"
+    readDataPath = "./../trainData/"
     saveModelPath = "./trainModels/Keras_LeNet"
 
     #載入資料
