@@ -37,13 +37,13 @@ def saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_test
     #設置checkpoint
     checkpoint = ModelCheckpoint(
             monitor='val_acc', verbose=1, 
-            save_best_only=False, mode='auto',
+            save_best_only=True, mode='auto',
             filepath=('%s_{epoch:02d}_{val_acc:.2f}.h5' %(saveModelPath)))
     callbacks_list = [checkpoint]
     #訓練模型
     model.fit(x_train, y_train,
-              batch_size,
-              epochs,
+              batch_size=batch_size,
+              nb_epoch=epochs,
               verbose=1,
               shuffle = True,
               validation_data =(x_test, y_test),
@@ -68,7 +68,7 @@ def buildLeNetModel(img_channl,img_height,img_width,num_classes,num_GPU):
     model.summary()
     
     model = multi_gpu_model(model, gpus=num_GPU)
-    
+
     model.compile(loss=categorical_crossentropy,
               optimizer=Adam(lr=0.001),
               metrics=['accuracy'])
@@ -76,13 +76,13 @@ def buildLeNetModel(img_channl,img_height,img_width,num_classes,num_GPU):
 
 if __name__ == "__main__":
     #參數設定
-    img_height, img_width, img_channl = 28, 28 , 3
-    num_classes = 5
+    img_height, img_width, img_channl = 28, 28 , 1
+    num_classes = 10
     batch_size = 20
-    epochs = 50
+    epochs = 10
     dataSplitRatio=0.8
-    readDataPath = "./../trainData/"
-    saveModelPath = "./trainModels/Keras_LeNet"
+    readDataPath = "./../Data/"
+    saveModelPath = "./../Model/Keras_LeNet"
     num_GPU = 2
 
     #載入資料
@@ -102,10 +102,15 @@ if __name__ == "__main__":
     y_train=label[:s]
     x_val=data[s:]
     y_val=label[s:]
+    
+    #重新調整大小
+    x_train = x_train.reshape(x_train.shape[0],img_height, img_width, img_channl)
+    x_val = x_val.reshape(x_val.shape[0],img_height, img_width, img_channl)
+
     print('x_train shape:', x_train.shape)
     print(x_train.shape[0], 'train samples')
     print(x_val.shape[0], 'validation samples')
-    
+
     #將數字轉為 One-hot 向量
     y_train = np_utils.to_categorical(y_train, num_classes)
     y_val = np_utils.to_categorical(y_val, num_classes)

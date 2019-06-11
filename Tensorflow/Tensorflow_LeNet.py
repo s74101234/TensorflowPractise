@@ -102,13 +102,13 @@ def saveTrainModels(img_channl,img_height,img_width,num_classes,
     
 if __name__ == "__main__":
     #參數設定
-    img_height, img_width, img_channl = 28, 28 , 3
-    num_classes = 5
+    img_height, img_width, img_channl = 28, 28 , 1
+    num_classes = 10
     batch_size = 20
-    epochs = 50
+    epochs = 10
     dataSplitRatio=0.8
-    readDataPath = "./../trainData/"
-    saveModelPath = "./trainModels/Tensorflow_LeNet.ckpt"
+    readDataPath = "./../Data/"
+    saveModelPath = "./../Model/Tensorflow_LeNet.ckpt"
     
     #載入資料
     data,label = read_img(readDataPath,img_height,img_width)
@@ -127,10 +127,15 @@ if __name__ == "__main__":
     y_train=label[:s]
     x_val=data[s:]
     y_val=label[s:]
+    
+    #重新調整大小
+    x_train = x_train.reshape(x_train.shape[0],img_height, img_width, img_channl)
+    x_val = x_val.reshape(x_val.shape[0],img_height, img_width, img_channl)
+
     print('x_train shape:', x_train.shape)
     print(x_train.shape[0], 'train samples')
     print(x_val.shape[0], 'validation samples')
-    
+
     #訓練及保存模型
     saveTrainModels(img_channl,img_height,img_width,num_classes,
                     saveModelPath,epochs,batch_size,x_train,y_train,x_val,y_val)
