@@ -16,7 +16,6 @@ from keras.layers import Dropout
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 from keras.utils import np_utils
-from keras.utils import multi_gpu_model
 
 #讀取圖片
 def read_img(path,img_height,img_width):
@@ -43,13 +42,13 @@ def saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_test
     #訓練模型
     model.fit(x_train, y_train,
               batch_size=batch_size,
-              nb_epoch=epochs,
+              epochs=epochs,
               verbose=1,
               shuffle = True,
               validation_data =(x_test, y_test),
               callbacks=callbacks_list)
     
-def buildLeNetModel(img_channl,img_height,img_width,num_classes,num_GPU):
+def buildLeNetModel(img_channl,img_height,img_width,num_classes):
     #建立模型,(LeNet架構)
     model = Sequential()
     
@@ -67,8 +66,6 @@ def buildLeNetModel(img_channl,img_height,img_width,num_classes,num_GPU):
     
     model.summary()
     
-    model = multi_gpu_model(model, gpus=num_GPU)
-
     model.compile(loss=categorical_crossentropy,
               optimizer=Adam(lr=0.001),
               metrics=['accuracy'])
@@ -81,9 +78,8 @@ if __name__ == "__main__":
     batch_size = 20
     epochs = 10
     dataSplitRatio=0.8
-    readDataPath = "./../Data/"
-    saveModelPath = "./../Model/Keras_LeNet"
-    num_GPU = 2
+    readDataPath = "./../../Data/"
+    saveModelPath = "./../../Model/Keras_LeNet"
 
     #載入資料
     data,label = read_img(readDataPath,img_height,img_width)
@@ -102,7 +98,7 @@ if __name__ == "__main__":
     y_train=label[:s]
     x_val=data[s:]
     y_val=label[s:]
-    
+
     #重新調整大小
     x_train = x_train.reshape(x_train.shape[0],img_height, img_width, img_channl)
     x_val = x_val.reshape(x_val.shape[0],img_height, img_width, img_channl)
@@ -115,7 +111,7 @@ if __name__ == "__main__":
     y_train = np_utils.to_categorical(y_train, num_classes)
     y_val = np_utils.to_categorical(y_val, num_classes)
     
-    model = buildLeNetModel(img_channl,img_height,img_width,num_classes,num_GPU)
+    model = buildLeNetModel(img_channl,img_height,img_width,num_classes)
     
     #訓練及保存模型
     saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_val,y_val)
