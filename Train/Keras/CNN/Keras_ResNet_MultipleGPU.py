@@ -2,7 +2,7 @@ from skimage import io,transform
 import glob
 import os
 import numpy as np
-import matplotlib.image as mpimg
+# import matplotlib.image as mpimg
 
 import keras
 from keras.callbacks import ModelCheckpoint
@@ -24,7 +24,7 @@ from keras.utils import multi_gpu_model
 from keras import backend as kerasBnd
 
 #讀取圖片
-def read_img(path,img_height,img_width):
+def read_img(path,img_height,img_width,writePath):
     cate=[path+x for x in os.listdir(path) if os.path.isdir(path+x)]
     imgs=[]
     labels=[]
@@ -36,7 +36,16 @@ def read_img(path,img_height,img_width):
             img_resize=transform.resize(img,(img_height,img_width))
             imgs.append(img_resize)
             labels.append(idx)
+    writeLabels(path,writePath)
     return np.asarray(imgs,np.float32),np.asarray(labels,np.int32)
+
+#寫檔(classes)
+def writeLabels(readPath,writePath):
+    cate = [x for x in os.listdir(readPath) if os.path.isdir(readPath+x)]
+    f = open(writePath, "w")
+    for i in range(0,len(cate),1):
+        f.write(str(cate[i]) + ",")
+    f.close()
 
 def saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_test,y_test):
     #設置checkpoint
@@ -105,11 +114,12 @@ if __name__ == "__main__":
     epochs = 10
     dataSplitRatio=0.8
     readDataPath = "./../../../Data/"
-    saveModelPath = "./../../../Model/Keras_LeNet"
+    saveModelPath = "./../../../Model/Keras_ResNet"
+    writeLabelPath = "./../../../Model/Keras_ResNet_Classes.txt"
     num_GPU = 2
 
     #載入資料
-    data,label = read_img(readDataPath,img_height,img_width)
+    data,label = read_img(readDataPath,img_height,img_width,writeLabelPath)
     
     #順序隨機
     num_example=data.shape[0]
