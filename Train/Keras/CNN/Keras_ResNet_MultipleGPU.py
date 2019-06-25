@@ -9,20 +9,20 @@ from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
 from keras.layers import Input
 from keras.models import Model
-from keras.layers.convolutional import Convolution2D
-from keras.layers.convolutional import MaxPooling2D
-from keras.layers.merge import add
-from keras.layers.normalization import BatchNormalization
-from keras.layers import Activation
-from keras.layers import Flatten
 from keras.layers import Dense
-from keras.layers import Dropout
+from keras.layers import Conv2D
+from keras.layers import BatchNormalization
+from keras.layers import Activation
+from keras.layers import AveragePooling2D
+from keras.layers.convolutional import MaxPooling2D
+from keras.layers import Flatten
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 from keras.utils import np_utils
 from keras.utils import multi_gpu_model
 from keras import backend as kerasBnd
 
+#參考 keras ResNet : https://keras.io/examples/cifar10_resnet/
 #讀取圖片
 def read_img(path,img_height,img_width,writePath):
     cate=[path+x for x in os.listdir(path) if os.path.isdir(path+x)]
@@ -63,26 +63,82 @@ def saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_test
               validation_data =(x_test, y_test),
               callbacks=callbacks_list)
     
-def buildResNetModel(img_channl,img_height,img_width,num_classes,num_GPU):
-    #建立模型,(ResNet架構)
-    model = Sequential()
+def resnet_layer(inputs,num_filters=16,kernel_size=3,strides=1,
+                 activation='relu',batch_normalization=True,conv_first=True):
+    
+    conv = Conv2D(num_filters,kernel_size=kernel_size,strides=strides,
+                  padding='same',kernel_initializer='he_normal')
 
-    inputs = Input(shape=(img_height, img_width,img_channl))
+    x = inputs
+    if conv_first:
+        x = conv(x)
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation is not None:
+            x = Activation(activation)(x)
+    else:
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation is not None:
+            x = Activation(activation)(x)
+        x = conv(x)
+    return x
 
-    x = Convolution2D(64, (7, 7), activation='relu')(inputs)
+def buildResNetModel_v2(img_channl,img_height,img_width,
+                        depth,num_classes,num_GPU):
+
+    inputs = Input(shape = (img_height, img_width,img_channl))
+    num_filters_in = 16
+    num_res_blocks = int((depth - 2) / 9)
+
+    x = resnet_layer(inputs=inputs,num_filters=num_filters_in,conv_first=True)
+          
+    #resNetBlock 3層
+    for stage in range(3):
+        #深度迴圈
+        for res_block in range(num_res_blocks):
+            activation = 'relu'
+            batch_normalization = True
+            strides = 1
+            #判斷是否是第一階段或第一層
+            if stage == 0:
+                num_filters_out = num_filters_in * 4
+                if res_block == 0:
+                    activation = None
+                    batch_normalization = False
+            else:
+                num_filters_out = num_filters_in * 2
+                if res_block == 0:
+                    strides = 2
+            #resNetBlock 進行
+            y = resnet_layer(inputs=x,num_filters=num_filters_in,kernel_size=1,
+                             strides=strides,activation=activation,
+                             batch_normalization=batch_normalization,
+                             conv_first=False)
+
+            y = resnet_layer(inputs=y,num_filters=num_filters_in,conv_first=False)
+            y = resnet_layer(inputs=y,num_filters=num_filters_out,kernel_size=1,conv_first=False)
+            
+            #合併resNetBlock(shortcut)
+            if res_block == 0:
+                x = resnet_layer(inputs=x,num_filters=num_filters_out, kernel_size=1,
+                                 strides=strides,activation=None,
+                                 batch_normalization=False)
+            x = keras.layers.add([x, y])
+
+        num_filters_in = num_filters_out
+
+    # final layer
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    # x = AveragePooling2D(pool_size=8)(x)
     x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+    y = Flatten()(x)
+    outputs = Dense(num_classes,
+                    activation='softmax',
+                    kernel_initializer='he_normal')(y)
 
-    # residual
-    residual = Convolution2D(64, (3, 3))(x)
-    residual = Convolution2D(64, (3, 3))(residual)
-    
-    x = shortcut(x,residual)
-
-    x = Flatten()(x)
-    x = Dense(500 ,activation='relu')(x)
-    x = Dense(num_classes, activation='softmax')(x)
-    
-    model = Model(inputs=inputs, outputs=x)
+    model = Model(inputs=inputs, outputs=outputs)
     model.summary()
     
     model = multi_gpu_model(model, gpus=num_GPU)
@@ -117,6 +173,13 @@ if __name__ == "__main__":
     saveModelPath = "./../../../Model/Keras_ResNet"
     writeLabelPath = "./../../../Model/Keras_ResNet_Classes.txt"
     num_GPU = 2
+    resNetVersion = 2
+    depthNum = 3
+
+    if(resNetVersion == 1):
+        depthNum = depthNum * 6 + 2
+    elif(resNetVersion == 2):
+        depthNum = depthNum * 9 + 2
 
     #載入資料
     data,label = read_img(readDataPath,img_height,img_width,writeLabelPath)
@@ -148,7 +211,8 @@ if __name__ == "__main__":
     y_train = np_utils.to_categorical(y_train, num_classes)
     y_val = np_utils.to_categorical(y_val, num_classes)
     
-    model = buildResNetModel(img_channl,img_height,img_width,num_classes,num_GPU)
+    model = buildResNetModel_v2(img_channl,img_height,img_width,
+                                depthNum,num_classes,num_GPU)
     
     #訓練及保存模型
     saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_val,y_val)
