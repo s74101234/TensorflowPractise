@@ -6,6 +6,7 @@ import matplotlib.image as mpimg
 import pandas as pd
 from pandas import DataFrame
 import calendar
+from sklearn.preprocessing import MinMaxScaler
 
 import keras
 from keras.callbacks import ModelCheckpoint
@@ -20,8 +21,10 @@ from keras.losses import sparse_categorical_crossentropy
 from keras.optimizers import Adam
 from keras.utils import np_utils
 from keras.utils import multi_gpu_model
+from keras.callbacks import TensorBoard
 
 #參考 shorturl.at/joruY
+#參考 shorturl.at/alHIW
 #讀取CSV
 def readCSV(path):
     f = open(path)
@@ -54,8 +57,10 @@ def augFeatures(csvData):
 
 #日期移除,資料正規化
 def normalize(csvData,writePath):
-    csvData = csvData.drop(["Date"], axis=1)
-
+    # csvData = csvData.drop(["Date"], axis=1)
+    # csvData.head()
+    # print(csvData)
+    csvData['Date'] = pd.DatetimeIndex(csvData['Date']).astype(np.int64)/1000000000
     csvDataMax = []
     csvDataMin = []
     result = csvData.copy()
@@ -89,128 +94,127 @@ def csvdataSelect(csvData,dropLabel):
         csvData = csvData.drop([dropLabel[i]], axis=1)
     return csvData
 
-# Insert_row
-def Insert_row(row_number, df, row_value): 
-    start_upper = 0   
-    end_upper = row_number    
-    start_lower = row_number    
-    end_lower = df.shape[0]    
-    upper_half = [*range(start_upper, end_upper, 1)]    
-    lower_half = [*range(start_lower, end_lower, 1)]    
-    lower_half = [x.__add__(1) for x in lower_half] 
-    index_ = upper_half + lower_half 
-    df.index = index_ 
-    df.loc[row_number] = row_value 
-    df = df.sort_index() 
-    return df
+# # Insert_row
+# def Insert_row(row_number, df, row_value): 
+#     start_upper = 0   
+#     end_upper = row_number    
+#     start_lower = row_number    
+#     end_lower = df.shape[0]    
+#     upper_half = [*range(start_upper, end_upper, 1)]    
+#     lower_half = [*range(start_lower, end_lower, 1)]    
+#     lower_half = [x.__add__(1) for x in lower_half] 
+#     index_ = upper_half + lower_half 
+#     df.index = index_ 
+#     df.loc[row_number] = row_value 
+#     df = df.sort_index() 
+#     return df
 
-#修復缺失資料(Hour)
-def RepairMissingData(csvData):
-    # csvData = csvData.values.tolist()
-    Count = len(csvData.values)
-    i = 1
-    while(i<Count):
-        if(csvData.values[i-1][0] == csvData.values[i][0]):
-            if((int(csvData.values[i-1][1]) + 1) != int(csvData.values[i][1])):
-                # print(str((csvData.values[i][1])))
-                csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                csvData.loc[i,'Hour'] = int(csvData.values[i-1][1]) + 1
-                csvData.sort_index(inplace=True)
-                Count += 1
-        else:
-            if(int(csvData.values[i-1][1]) != 24):
-                csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                csvData.loc[i,'Hour'] = int(csvData.values[i-1][1]) + 1
-                csvData.sort_index(inplace=True)
-                Count += 1   
-            elif(int(csvData.values[i][1]) != 1):
-                csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                csvData.loc[i,'Hour'] = 1
-                csvData.loc[i,'Date'] = csvData.loc[i+1,'Date']
-                csvData.loc[i,'date'] = csvData.loc[i+1,'date']
-                csvData.sort_index(inplace=True)
-                Count += 1  
+# #修復缺失資料(Hour)
+# def RepairMissingData(csvData):
+#     # csvData = csvData.values.tolist()
+#     Count = len(csvData.values)
+#     i = 1
+#     while(i<Count):
+#         if(csvData.values[i-1][0] == csvData.values[i][0]):
+#             if((int(csvData.values[i-1][1]) + 1) != int(csvData.values[i][1])):
+#                 # print(str((csvData.values[i][1])))
+#                 csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                 csvData.loc[i,'Hour'] = int(csvData.values[i-1][1]) + 1
+#                 csvData.sort_index(inplace=True)
+#                 Count += 1
+#         else:
+#             if(int(csvData.values[i-1][1]) != 24):
+#                 csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                 csvData.loc[i,'Hour'] = int(csvData.values[i-1][1]) + 1
+#                 csvData.sort_index(inplace=True)
+#                 Count += 1   
+#             elif(int(csvData.values[i][1]) != 1):
+#                 csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                 csvData.loc[i,'Hour'] = 1
+#                 csvData.loc[i,'Date'] = csvData.loc[i+1,'Date']
+#                 csvData.loc[i,'date'] = csvData.loc[i+1,'date']
+#                 csvData.sort_index(inplace=True)
+#                 Count += 1  
 
-        i += 1
+#         i += 1
 
-    Count = len(csvData.values)
-    i = 1
-    while(i<Count):
-        if(csvData.values[i-1][0] != csvData.values[i][0]):
-            if(csvData.loc[i-1,'month'] == csvData.loc[i,'month']):
-                MissingDayTemp = csvData.loc[i-1,'date'] - csvData.loc[i,'date']
-                if(MissingDayTemp > 1):
-                    dayTemp = csvData.loc[i-1,'date'] - 1
-                    csvData["Date"].dt.day
-                    for j in range(1,25,1):
-                        csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                        csvData.loc[i,'Hour'] = 25-j
-                        csvData.loc[i,'date'] = dayTemp
-                        DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
-                        DateTemp = DateTemp.replace(day=dayTemp)
-                        csvData.loc[i,'Date'] = DateTemp
-                        csvData.sort_index(inplace=True)
-                        Count += 1
-            else:
-                totalDayTemp = calendar.monthrange(csvData.loc[i,'year'],csvData.loc[i,'month'])[1]
-                if(csvData.loc[i,'date'] != totalDayTemp):
-                    MissingDayTemp = totalDayTemp - csvData.loc[i,'date']
-                    dayTemp = csvData.loc[i,'date'] + 1
-                    monthTemp = csvData.loc[i,'month']
-                    for j in range(1,25,1):
-                        csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                        csvData.loc[i,'Hour'] = 25-j
-                        csvData.loc[i,'month'] = monthTemp
-                        csvData.loc[i,'date'] = dayTemp
-                        DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
-                        DateTemp = DateTemp.replace(month=monthTemp,day=dayTemp)
-                        csvData.loc[i,'Date'] = DateTemp
-                        csvData.sort_index(inplace=True)
-                        Count += 1
-                    i-=1
-        i += 1
+#     Count = len(csvData.values)
+#     i = 1
+#     while(i<Count):
+#         if(csvData.values[i-1][0] != csvData.values[i][0]):
+#             if(csvData.loc[i-1,'month'] == csvData.loc[i,'month']):
+#                 MissingDayTemp = csvData.loc[i-1,'date'] - csvData.loc[i,'date']
+#                 if(MissingDayTemp > 1):
+#                     dayTemp = csvData.loc[i-1,'date'] - 1
+#                     csvData["Date"].dt.day
+#                     for j in range(1,25,1):
+#                         csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                         csvData.loc[i,'Hour'] = 25-j
+#                         csvData.loc[i,'date'] = dayTemp
+#                         DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
+#                         DateTemp = DateTemp.replace(day=dayTemp)
+#                         csvData.loc[i,'Date'] = DateTemp
+#                         csvData.sort_index(inplace=True)
+#                         Count += 1
+#             else:
+#                 totalDayTemp = calendar.monthrange(csvData.loc[i,'year'],csvData.loc[i,'month'])[1]
+#                 if(csvData.loc[i,'date'] != totalDayTemp):
+#                     MissingDayTemp = totalDayTemp - csvData.loc[i,'date']
+#                     dayTemp = csvData.loc[i,'date'] + 1
+#                     monthTemp = csvData.loc[i,'month']
+#                     for j in range(1,25,1):
+#                         csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                         csvData.loc[i,'Hour'] = 25-j
+#                         csvData.loc[i,'month'] = monthTemp
+#                         csvData.loc[i,'date'] = dayTemp
+#                         DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
+#                         DateTemp = DateTemp.replace(month=monthTemp,day=dayTemp)
+#                         csvData.loc[i,'Date'] = DateTemp
+#                         csvData.sort_index(inplace=True)
+#                         Count += 1
+#                     i-=1
+#         i += 1
 
-    # csvData = DataFrame(csvData)
-    return csvData
+#     # csvData = DataFrame(csvData)
+#     return csvData
 
 
-#修復缺失資料(Date)
-def RepairMissingData2(csvData):
-    csvData = csvData.reset_index(drop=True)
-    Count = len(csvData.values)
-    i = 1
-    while(i<Count):
-        if(csvData.loc[i-1,'month'] == csvData.loc[i,'month']):
-            MissingDayTemp = csvData.loc[i-1,'date'] - csvData.loc[i,'date']
-            if(MissingDayTemp > 1):
-                dayTemp = csvData.loc[i-1,'date'] - 1
-                csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                csvData.loc[i,'date'] = dayTemp
-                DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
-                DateTemp = DateTemp.replace(day=dayTemp)
-                csvData.loc[i,'Date'] = DateTemp
-                csvData.sort_index(inplace=True)
-                Count += 1
-        else:
-            totalDayTemp = calendar.monthrange(csvData.loc[i,'year'],csvData.loc[i,'month'])[1]
-            if(csvData.loc[i,'date'] != totalDayTemp):
-                MissingDayTemp = totalDayTemp - csvData.loc[i,'date']
-                dayTemp = csvData.loc[i,'date'] + 1
-                monthTemp = csvData.loc[i,'month']
-                csvData = Insert_row((i-1),csvData,csvData.values[i-1])
-                csvData.loc[i,'month'] = monthTemp
-                csvData.loc[i,'date'] = dayTemp
-                DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
-                DateTemp = DateTemp.replace(month=monthTemp,day=dayTemp)
-                csvData.loc[i,'Date'] = DateTemp
-                csvData.sort_index(inplace=True)
-                Count += 1
-                i-=1
-        i += 1
+# #修復缺失資料(Date)
+# def RepairMissingData2(csvData):
+#     csvData = csvData.reset_index(drop=True)
+#     Count = len(csvData.values)
+#     i = 1
+#     while(i<Count):
+#         if(csvData.loc[i-1,'month'] == csvData.loc[i,'month']):
+#             MissingDayTemp = csvData.loc[i-1,'date'] - csvData.loc[i,'date']
+#             if(MissingDayTemp > 1):
+#                 dayTemp = csvData.loc[i-1,'date'] - 1
+#                 csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                 csvData.loc[i,'date'] = dayTemp
+#                 DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
+#                 DateTemp = DateTemp.replace(day=dayTemp)
+#                 csvData.loc[i,'Date'] = DateTemp
+#                 csvData.sort_index(inplace=True)
+#                 Count += 1
+#         else:
+#             totalDayTemp = calendar.monthrange(csvData.loc[i,'year'],csvData.loc[i,'month'])[1]
+#             if(csvData.loc[i,'date'] != totalDayTemp):
+#                 MissingDayTemp = totalDayTemp - csvData.loc[i,'date']
+#                 dayTemp = csvData.loc[i,'date'] + 1
+#                 monthTemp = csvData.loc[i,'month']
+#                 csvData = Insert_row((i-1),csvData,csvData.values[i-1])
+#                 csvData.loc[i,'month'] = monthTemp
+#                 csvData.loc[i,'date'] = dayTemp
+#                 DateTemp  = pd.to_datetime(csvData.loc[i,'Date'])
+#                 DateTemp = DateTemp.replace(month=monthTemp,day=dayTemp)
+#                 csvData.loc[i,'Date'] = DateTemp
+#                 csvData.sort_index(inplace=True)
+#                 Count += 1
+#                 i-=1
+#         i += 1
 
-    # csvData = DataFrame(csvData)
-    return csvData
-
+#     # csvData = DataFrame(csvData)
+#     return csvData
 
 #資料切割train與label - 過去與未來日期
 def csvDataSplit(csvData, pastDay, futureDay , predictValue):
@@ -220,13 +224,19 @@ def csvDataSplit(csvData, pastDay, futureDay , predictValue):
         label.append(np.array(csvData.iloc[i+pastDay:i+pastDay+futureDay][predictValue]))
     return np.array(data), np.array(label)
 
-def saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_test,y_test):
+def saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,
+                    x_train,y_train,x_test,y_test):
+    #TensorBoard
+    tbCallBack = TensorBoard(log_dir=saveTensorBoardPath,batch_size=batch_size,
+                 write_graph=True,write_grads=True,write_images=True,
+                 embeddings_freq=0,embeddings_layer_names=None,embeddings_metadata=None)
+
     #設置checkpoint
     checkpoint = ModelCheckpoint(
             monitor='val_loss', verbose=0, 
             save_best_only=True, mode='auto',
             filepath=('%s_{epoch:02d}_{val_loss:.4f}.h5' %(saveModelPath)))
-    callbacks_list = [checkpoint]
+    callbacks_list = [checkpoint,tbCallBack]
 
     #訓練模型
     model.fit(x_train, y_train,
@@ -241,17 +251,20 @@ def buildLSTMModel(num_units,height,width,num_classes):
     #建立模型,(LSTM架構)
     model = Sequential()
 
+# -----------------------------------------------------
     model.add(LSTM(
         batch_input_shape=(None,height, width), 
         units= num_units,
         unroll=True,
-        activation='relu'
+        activation='relu',
+        return_sequences = False,
     ))     
     # model.add(Dropout(0.2))
+# -----------------------------------------------------
     model.add(Dense(units=num_classes)) 
 
     # mse mean_squared_error
-    model.compile(loss="mse",
+    model.compile(loss="mean_squared_error",
               optimizer=Adam(lr=0.001),
               metrics=['accuracy'])
     
@@ -261,32 +274,38 @@ def buildLSTMModel(num_units,height,width,num_classes):
 if __name__ == "__main__":
     # 參數設定
     predictValue = "Close"
-    pastDay,futureDay = 60,1
-    num_units = 200
+    pastDay,futureDay = 60,7
+    num_units = 50
     batch_size = 64
-    epochs = 100
+    epochs = 200
     dataSplitRatio=0.8
     readDataPath = "./../../../Data/Data.csv"
     saveModelPath = "./../../../Model/Keras_LSTM_"+predictValue
+    saveTensorBoardPath = "./../../../Model/TensorBoard"
     writeNormalizePath = "./../../../Model/Keras_LSTM_Normalize.txt"
 
     # 載入資料
     csvData = readCSV(readDataPath)
 
+    # 排序顛倒
+    csvData = csvData.sort_index(ascending=False)
+    csvData = csvData.reset_index(drop=True)
+    print(csvData)
+
     # Clean Missing Data 移除有缺失的資料
     csvData = CleanMissingData(csvData)
 
     #資料增強
-    csvData = augFeatures(csvData)
+    # csvData = augFeatures(csvData)
 
     #修復缺失資料
-    csvData = RepairMissingData2(csvData)
+    # csvData = RepairMissingData2(csvData)
 
     #日期移除,資料正規化
     csvData = normalize(csvData,writeNormalizePath)
 
-    #移除不必要資料
-    csvData = csvdataSelect(csvData,["MarketCap","Volume"])
+    # 移除不必要資料
+    csvData = csvdataSelect(csvData,[])
     print(csvData)
 
     #資料切割train與label - 過去與未來日期
@@ -315,5 +334,5 @@ if __name__ == "__main__":
     model = buildLSTMModel(num_units,x_train.shape[1],x_train.shape[2],futureDay)
     
     #訓練及保存模型
-    saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_val,y_val)
+    saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,x_train,y_train,x_val,y_val)
     

@@ -53,7 +53,10 @@ def augFeatures(csvData):
 
 #日期移除,資料正規化
 def normalize(csvData,readNormalizePath):
-    csvData = csvData.drop(["Date"], axis=1)
+    # csvData = csvData.drop(["Date"], axis=1)
+    # csvData.head()
+    # print(csvData)
+    csvData['Date'] = pd.DatetimeIndex(csvData['Date']).astype(np.int64)/1000000000
     result = csvData.copy()
     csvDataMax = []
     csvDataMin = []
@@ -113,7 +116,7 @@ def csvDataSplit(csvData, pastDay, futureDay):
 if __name__ == "__main__":
     #參數設定
     predictValue = "Close"
-    pastDay,futureDay = 60,1
+    pastDay,futureDay = 60,7
     readDataPath = "./../../../Input/Data.csv"
     loadModelPath = "./../../../Model/Keras_LSTM_"+predictValue+".h5"
     readNormalizePath = "./../../../Model/Keras_LSTM_Normalize.txt"
@@ -121,19 +124,23 @@ if __name__ == "__main__":
     #載入資料
     csvData = readCSV(readDataPath)
 
+    # 排序顛倒
+    csvData = csvData.sort_index(ascending=False)
+    csvData = csvData.reset_index(drop=True)
+    # print(csvData)
+
     #Clean Missing Data 移除有缺失的資料
     csvData = CleanMissingData(csvData)
 
     #資料增強
-    csvData = augFeatures(csvData)
-    # print(csvData)
+    # csvData = augFeatures(csvData)
 
     #日期移除,資料正規化
     csvData,csvDataMax,csvDataMin = normalize(csvData,readNormalizePath)
 
     #移除不必要資料
-    csvData = csvdataSelect(csvData,["MarketCap","Volume"])
-    print(csvData)
+    # csvData = csvdataSelect(csvData,["MarketCap","Volume"])
+    # print(csvData)
 
     #資料切割train與label - 過去與未來日期
     data = csvDataSplit(csvData, pastDay, futureDay)
@@ -143,7 +150,7 @@ if __name__ == "__main__":
 
     #Predict
     result = model.predict(data)
-    print(str(result))
+    # print(str(result))
 
     #還原正規化
     index = csvData.columns.get_loc(predictValue)

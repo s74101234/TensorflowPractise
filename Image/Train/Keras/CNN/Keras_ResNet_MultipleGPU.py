@@ -21,6 +21,7 @@ from keras.optimizers import Adam
 from keras.utils import np_utils
 from keras.utils import multi_gpu_model
 from keras import backend as kerasBnd
+from keras.callbacks import TensorBoard
 
 #參考 keras ResNet : https://keras.io/examples/cifar10_resnet/
 #讀取圖片
@@ -47,13 +48,20 @@ def writeLabels(readPath,writePath):
         f.write(str(cate[i]) + ",")
     f.close()
 
-def saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_test,y_test):
+def saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,
+                    x_train,y_train,x_test,y_test):
+    #TensorBoard
+    tbCallBack = TensorBoard(log_dir=saveTensorBoardPath,batch_size=batch_size,
+                 write_graph=True,write_grads=True,write_images=True,
+                 embeddings_freq=0,embeddings_layer_names=None,embeddings_metadata=None)
+
     #設置checkpoint
     checkpoint = ModelCheckpoint(
             monitor='val_acc', verbose=1, 
             save_best_only=True, mode='auto',
             filepath=('%s_{epoch:02d}_{val_acc:.2f}.h5' %(saveModelPath)))
-    callbacks_list = [checkpoint]
+    callbacks_list = [checkpoint,tbCallBack]
+    
     #訓練模型
     model.fit(x_train, y_train,
               batch_size=batch_size,
@@ -171,6 +179,7 @@ if __name__ == "__main__":
     dataSplitRatio=0.8
     readDataPath = "./../../../Data/"
     saveModelPath = "./../../../Model/Keras_ResNet"
+    saveTensorBoardPath = "./../../../Model/TensorBoard"
     writeLabelPath = "./../../../Model/Keras_ResNet_Classes.txt"
     num_GPU = 2
     resNetVersion = 2
@@ -215,5 +224,5 @@ if __name__ == "__main__":
                                 depthNum,num_classes,num_GPU)
     
     #訓練及保存模型
-    saveTrainModels(model,saveModelPath,epochs,batch_size,x_train,y_train,x_val,y_val)
+    saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,x_train,y_train,x_val,y_val)
     
