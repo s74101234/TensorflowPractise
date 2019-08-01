@@ -12,13 +12,15 @@ from keras.layers import MaxPooling2D
 from keras.layers import Activation
 from keras.layers import Flatten
 from keras.layers import Dense
+from keras.layers import Dropout
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 from keras.utils import np_utils
+from keras.utils import multi_gpu_model
 from keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 
-#參考 https://blog.csdn.net/wmy199216/article/details/71171401
+#參考https://blog.csdn.net/wmy199216/article/details/71171401
 #讀取圖片
 def read_img(path,img_height,img_width,img_channl,writePath):
     cate=[path+x for x in os.listdir(path) if os.path.isdir(path+x)]
@@ -97,19 +99,27 @@ def saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,
               validation_data =(x_test, y_test),
               callbacks=callbacks_list)
     
-def buildLeNetModel(img_height,img_width,img_channl,num_classes):
-    #建立模型,(LeNet架構)
+def buildZFNetModel(img_height,img_width,img_channl,num_classes,num_GPU):
+    #建立模型,(ZFNet架構)
     model = Sequential()
 
-    model.add(Conv2D(32,(5,5),strides=(1,1),input_shape=(img_height, img_width,img_channl),padding='valid',activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2,2)))
-    model.add(Conv2D(64,(5,5),strides=(1,1),padding='valid',activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2,2)))
+    model.add(Conv2D(96,(7,7),strides=(2,2),input_shape=(img_height, img_width,img_channl),padding='valid',activation='relu'))
+    model.add(MaxPooling2D(pool_size=(3,3),strides=(2,2)))
+    model.add(Conv2D(256,(5,5),strides=(2,2),padding='same',activation='relu'))
+    model.add(MaxPooling2D(pool_size=(3,3),strides=(2,2)))
+    model.add(Conv2D(384,(3,3),strides=(1,1),padding='same',activation='relu'))
+    model.add(Conv2D(384,(3,3),strides=(1,1),padding='same',activation='relu'))
+    model.add(Conv2D(256,(3,3),strides=(1,1),padding='same',activation='relu'))
+    model.add(MaxPooling2D(pool_size=(3,3),strides=(2,2)))
     model.add(Flatten())
-    model.add(Dense(100,activation='relu'))
+    model.add(Dense(4096,activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(4096,activation='relu'))
+    model.add(Dropout(0.5))
     model.add(Dense(num_classes,activation='softmax'))
 
     model.summary()    
+    model = multi_gpu_model(model, gpus=num_GPU)
     model.compile(loss=categorical_crossentropy,
               optimizer=Adam(lr=0.001),
               metrics=['accuracy'])
@@ -117,15 +127,16 @@ def buildLeNetModel(img_height,img_width,img_channl,num_classes):
 
 if __name__ == "__main__":
     #參數設定
-    img_height, img_width, img_channl = 28,28,1 #28,28,1
+    img_height, img_width, img_channl = 224,224,1 #224, 224 , 3
     num_classes = 10
     batch_size = 32
     epochs = 100
     dataSplitRatio=0.8
     readDataPath = "./../../../Data/"
-    saveModelPath = "./../../../Model/Keras_LeNet"
+    saveModelPath = "./../../../Model/Keras_ZFNet"
     saveTensorBoardPath = "./../../../Model/TensorBoard"
-    writeLabelPath = "./../../../Model/Keras_LeNet_Classes.txt"
+    writeLabelPath = "./../../../Model/Keras_ZFNet_Classes.txt"
+    num_GPU = 2
     num_DataAug = 0
 
     #載入資料
@@ -171,7 +182,7 @@ if __name__ == "__main__":
     y_train = np_utils.to_categorical(y_train, num_classes)
     y_val = np_utils.to_categorical(y_val, num_classes)
     
-    model = buildLeNetModel(img_height,img_width,img_channl,num_classes)
+    model = buildZFNetModel(img_height,img_width,img_channl,num_classes,num_GPU)
     
     #訓練及保存模型
     saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,x_train,y_train,x_val,y_val)

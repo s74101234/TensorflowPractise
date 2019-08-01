@@ -14,18 +14,18 @@ from keras.layers import Conv2D
 from keras.layers import BatchNormalization
 from keras.layers import Activation
 from keras.layers import AveragePooling2D
-from keras.layers import ZeroPadding2D
-from keras.layers import add
 from keras.layers import MaxPooling2D
 from keras.layers import Flatten
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 from keras.utils import np_utils
 from keras.utils import multi_gpu_model
+from keras import backend as kerasBnd
 from keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
+import matplotlib.image as mpimg
 
-#參考https://blog.csdn.net/wmy199216/article/details/71171401
+#參考https://keras.io/examples/cifar10_resnet/
 #讀取圖片
 def read_img(path,img_height,img_width,img_channl,writePath):
     cate=[path+x for x in os.listdir(path) if os.path.isdir(path+x)]
@@ -104,123 +104,176 @@ def saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,
               validation_data =(x_test, y_test),
               callbacks=callbacks_list)
     
-def Conv2d_BN(x, nb_filter,kernel_size, strides=(1,1), padding='same'):
-    x = Conv2D(nb_filter,kernel_size,padding=padding,strides=strides,activation='relu')(x)
-    x = BatchNormalization(axis=3)(x)
+def resnet_layer(inputs,num_filters=16,kernel_size=3,strides=1,
+                 activation='relu',batch_normalization=True,conv_first=True):
+    
+    conv = Conv2D(num_filters,kernel_size=kernel_size,strides=strides,
+                  padding='same',kernel_initializer='he_normal')
+
+    x = inputs
+    if conv_first:
+        x = conv(x)
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation is not None:
+            x = Activation(activation)(x)
+    else:
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation is not None:
+            x = Activation(activation)(x)
+        x = conv(x)
     return x
- 
-def Conv_Block_2(inputs,nb_filter,kernel_size,strides=(1,1), with_conv_shortcut=False):
-    x = Conv2d_BN(inputs,nb_filter=nb_filter,kernel_size=kernel_size,strides=strides,padding='same')
-    x = Conv2d_BN(x, nb_filter=nb_filter, kernel_size=kernel_size,padding='same')
-    if with_conv_shortcut:
-        shortcut = Conv2d_BN(inputs,nb_filter=nb_filter,strides=strides,kernel_size=kernel_size)
-        x = add([x,shortcut])
-        return x
-    else:
-        x = add([x,inputs])
-        return x
- 
-def Conv_Block_3(inputs,nb_filter,kernel_size,strides=(1,1), with_conv_shortcut=False):
-    x = Conv2d_BN(inputs,nb_filter=nb_filter[0],kernel_size=(1,1),strides=strides,padding='same')
-    x = Conv2d_BN(x, nb_filter=nb_filter[1], kernel_size=(3,3), padding='same')
-    x = Conv2d_BN(x, nb_filter=nb_filter[2], kernel_size=(1,1), padding='same')
-    if with_conv_shortcut:
-        shortcut = Conv2d_BN(inputs,nb_filter=nb_filter[2],strides=strides,kernel_size=kernel_size)
-        x = add([x,shortcut])
-        return x
-    else:
-        x = add([x,inputs])
-        return x
 
-def buildResNetModel_34(img_height,img_width,img_channl,
-                        num_classes,num_GPU):
+def buildResNetModel_v1(img_height,img_width,img_channl,
+                        depth,num_classes,num_GPU):
     inputs = Input(shape = (img_height, img_width,img_channl))
-    x = ZeroPadding2D((3,3))(inputs)
-    x = Conv2d_BN(x,nb_filter=64,kernel_size=(7,7),strides=(2,2),padding='valid')
-    x = MaxPooling2D(pool_size=(3,3),strides=(2,2),padding='same')(x)
-    #(56,56,64)
-    x = Conv_Block_2(x,nb_filter=64,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=64,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=64,kernel_size=(3,3))
-    #(28,28,128)
-    x = Conv_Block_2(x,nb_filter=128,kernel_size=(3,3),strides=(2,2),with_conv_shortcut=True)
-    x = Conv_Block_2(x,nb_filter=128,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=128,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=128,kernel_size=(3,3))
-    #(14,14,256)
-    x = Conv_Block_2(x,nb_filter=256,kernel_size=(3,3),strides=(2,2),with_conv_shortcut=True)
-    x = Conv_Block_2(x,nb_filter=256,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=256,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=256,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=256,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=256,kernel_size=(3,3))
-    #(7,7,512)
-    x = Conv_Block_2(x,nb_filter=512,kernel_size=(3,3),strides=(2,2),with_conv_shortcut=True)
-    x = Conv_Block_2(x,nb_filter=512,kernel_size=(3,3))
-    x = Conv_Block_2(x,nb_filter=512,kernel_size=(3,3))
-    x = AveragePooling2D(pool_size=(7,7))(x)
-    x = Flatten()(x)
-    outputs = Dense(num_classes,activation='softmax')(x)
+    num_filters = 16
+    num_res_blocks = int((depth - 2) / 6)
+
+    x = resnet_layer(inputs=inputs,num_filters=num_filters,conv_first=True)
+    
+    #resNetBlock 2層
+    for stack in range(3):
+        for res_block in range(num_res_blocks):
+            strides = 1
+            #判斷是否是第一階段或第一層
+            if stack > 0 and res_block == 0:  
+                strides = 2  
+            y = resnet_layer(inputs=x,
+                             num_filters=num_filters,
+                             strides=strides)
+            y = resnet_layer(inputs=y,
+                             num_filters=num_filters,
+                             activation=None)
+            #判斷是否是第一階段或第一層
+            if stack > 0 and res_block == 0: 
+                x = resnet_layer(inputs=x,
+                                 num_filters=num_filters,
+                                 kernel_size=1,
+                                 strides=strides,
+                                 activation=None,
+                                 batch_normalization=False)
+            #合併resNetBlock(shortcut)
+            x = keras.layers.add([x, y])
+            x = Activation('relu')(x)
+        num_filters *= 2
+
+    x = AveragePooling2D(pool_size=8)(x)
+    # x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+    y = Flatten()(x)
+    outputs = Dense(num_classes,
+                    activation='softmax',
+                    kernel_initializer='he_normal')(y)
     model = Model(inputs=inputs, outputs=outputs)
     model.summary()
+    
     model = multi_gpu_model(model, gpus=num_GPU)
+
     model.compile(loss=categorical_crossentropy,
-            optimizer=Adam(lr=0.001),
-            metrics=['accuracy'])
+              optimizer=Adam(lr=0.001),#0.001
+              metrics=['accuracy'])
+              
     return model
 
-def buildResNetModel_50(img_height,img_width,img_channl,
-                        num_classes,num_GPU):
-    inputs = Input(shape = (img_height, img_width,img_channl))
-    
-    x = ZeroPadding2D((3,3))(inputs)
-    x = Conv2d_BN(x,nb_filter=64,kernel_size=(7,7),strides=(2,2),padding='valid')
-    x = MaxPooling2D(pool_size=(3,3),strides=(2,2),padding='same')(x)
+def buildResNetModel_v2(img_height,img_width,img_channl,
+                        depth,num_classes,num_GPU):
 
-    x = Conv_Block_3(x,nb_filter=[64,64,256],kernel_size=(3,3),strides=(1,1),with_conv_shortcut=True)
-    x = Conv_Block_3(x,nb_filter=[64,64,256],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[64,64,256],kernel_size=(3,3))
-    
-    x = Conv_Block_3(x,nb_filter=[128,128,512],kernel_size=(3,3),strides=(2,2),with_conv_shortcut=True)
-    x = Conv_Block_3(x,nb_filter=[128,128,512],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[128,128,512],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[128,128,512],kernel_size=(3,3))
-    
-    x = Conv_Block_3(x,nb_filter=[256,256,1024],kernel_size=(3,3),strides=(2,2),with_conv_shortcut=True)
-    x = Conv_Block_3(x,nb_filter=[256,256,1024],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[256,256,1024],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[256,256,1024],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[256,256,1024],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[256,256,1024],kernel_size=(3,3))
-    
-    x = Conv_Block_3(x,nb_filter=[512,512,2048],kernel_size=(3,3),strides=(2,2),with_conv_shortcut=True)
-    x = Conv_Block_3(x,nb_filter=[512,512,2048],kernel_size=(3,3))
-    x = Conv_Block_3(x,nb_filter=[512,512,2048],kernel_size=(3,3))
-    x = AveragePooling2D(pool_size=(7,7))(x)
-    x = Flatten()(x)
-    outputs = Dense(num_classes,activation='softmax')(x)
+    inputs = Input(shape = (img_height, img_width,img_channl))
+    num_filters_in = 16
+    num_res_blocks = int((depth - 2) / 9)
+
+    x = resnet_layer(inputs=inputs,num_filters=num_filters_in,conv_first=True)
+          
+    #resNetBlock 3層
+    for stage in range(3):
+        #深度迴圈
+        for res_block in range(num_res_blocks):
+            activation = 'relu'
+            batch_normalization = True
+            strides = 1
+            #判斷是否是第一階段或第一層
+            if stage == 0:
+                num_filters_out = num_filters_in * 4
+                if res_block == 0:
+                    activation = None
+                    batch_normalization = False
+            else:
+                num_filters_out = num_filters_in * 2
+                if res_block == 0:
+                    strides = 2
+            #resNetBlock 進行
+            y = resnet_layer(inputs=x,num_filters=num_filters_in,kernel_size=1,
+                             strides=strides,activation=activation,
+                             batch_normalization=batch_normalization,
+                             conv_first=False)
+
+            y = resnet_layer(inputs=y,num_filters=num_filters_in,conv_first=False)
+            y = resnet_layer(inputs=y,num_filters=num_filters_out,kernel_size=1,conv_first=False)
+            
+            #合併resNetBlock(shortcut)
+            if res_block == 0:
+                x = resnet_layer(inputs=x,num_filters=num_filters_out, kernel_size=1,
+                                 strides=strides,activation=None,
+                                 batch_normalization=False)
+            x = keras.layers.add([x, y])
+
+        num_filters_in = num_filters_out
+
+    # final layer
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    # x = AveragePooling2D(pool_size=8)(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+    y = Flatten()(x)
+    outputs = Dense(num_classes,
+                    activation='softmax',
+                    kernel_initializer='he_normal')(y)
 
     model = Model(inputs=inputs, outputs=outputs)
     model.summary()
+    
     model = multi_gpu_model(model, gpus=num_GPU)
+
     model.compile(loss=categorical_crossentropy,
-            optimizer=Adam(lr=0.001),
-            metrics=['accuracy'])
+              optimizer=Adam(lr=0.001),#0.001
+              metrics=['accuracy'])
     return model
+
+def shortcut(input, residual):
+    input_shape = kerasBnd.int_shape(input)
+    residual_shape = kerasBnd.int_shape(residual)
+    stride_width = int(round(input_shape[1] / residual_shape[1]))
+    stride_height = int(round(input_shape[2] / residual_shape[2]))
+    equal_channels = input_shape[3] == residual_shape[3]
+
+    shortcut = input
+    # 判斷兩個tensor是否相同大小，如果不相同則進行Conv2D之後才相加。
+    if stride_width > 1 or stride_height > 1 or not equal_channels:
+        shortcut = Convolution2D(residual_shape[3],kernel_size=(1, 1),strides=(stride_width, stride_height),padding="valid")(input)
+
+    return add([shortcut, residual])
 
 if __name__ == "__main__":
     #參數設定
     img_height, img_width, img_channl = 224,224,1 #224, 224 , 3
     num_classes = 10
-    batch_size = 32
+    batch_size = 2
     epochs = 100
     dataSplitRatio=0.8
     readDataPath = "./../../../Data/"
-    saveModelPath = "./../../../Model/Keras_ResNet"
+    saveModelPath = "./../../../Model/Keras_ResNetV2"
     saveTensorBoardPath = "./../../../Model/TensorBoard"
-    writeLabelPath = "./../../../Model/Keras_ResNet_Classes.txt"
+    writeLabelPath = "./../../../Model/Keras_ResNetV2_Classes.txt"
     num_GPU = 2
+    resNetVersion = 1
+    depthNum = 9
     num_DataAug = 0
+
+    if(resNetVersion == 1):
+        depthNum = depthNum * 6 + 2
+    elif(resNetVersion == 2):
+        depthNum = depthNum * 9 + 2
 
     #載入資料
     data,label = read_img(readDataPath,img_height,img_width,img_channl,writeLabelPath)
@@ -265,8 +318,11 @@ if __name__ == "__main__":
     y_train = np_utils.to_categorical(y_train, num_classes)
     y_val = np_utils.to_categorical(y_val, num_classes)
     
-    # model = buildResNetModel_34(img_height,img_width,img_channl,num_classes,num_GPU)
-    model = buildResNetModel_50(img_height,img_width,img_channl,num_classes,num_GPU)
-   
+    if(resNetVersion == 1):
+        model = buildResNetModel_v1(img_height,img_width,img_channl,depthNum,num_classes,num_GPU)
+    elif(resNetVersion == 2):
+        model = buildResNetModel_v2(img_height,img_width,img_channl,depthNum,num_classes,num_GPU)
+
+    
     #訓練及保存模型
     saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,x_train,y_train,x_val,y_val)

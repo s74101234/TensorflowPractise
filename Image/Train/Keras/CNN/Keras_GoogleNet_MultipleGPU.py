@@ -7,18 +7,26 @@ import numpy as np
 import keras
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
-from keras.layers import Conv2D
-from keras.layers import MaxPooling2D
-from keras.layers import Activation
-from keras.layers import Flatten
+from keras.models import Model
+from keras.layers import Input
 from keras.layers import Dense
+from keras.layers import Conv2D
+from keras.layers import BatchNormalization
+from keras.layers import Activation
+from keras.layers import AveragePooling2D
+from keras.layers import ZeroPadding2D
+from keras.layers import concatenate
+from keras.layers import MaxPooling2D
+from keras.layers import Dropout
+from keras.layers import Flatten
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 from keras.utils import np_utils
+from keras.utils import multi_gpu_model
 from keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 
-#參考 https://blog.csdn.net/wmy199216/article/details/71171401
+#參考https://blog.csdn.net/wmy199216/article/details/71171401
 #讀取圖片
 def read_img(path,img_height,img_width,img_channl,writePath):
     cate=[path+x for x in os.listdir(path) if os.path.isdir(path+x)]
@@ -96,41 +104,75 @@ def saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,
               shuffle = True,
               validation_data =(x_test, y_test),
               callbacks=callbacks_list)
-    
-def buildLeNetModel(img_height,img_width,img_channl,num_classes):
-    #建立模型,(LeNet架構)
-    model = Sequential()
 
-    model.add(Conv2D(32,(5,5),strides=(1,1),input_shape=(img_height, img_width,img_channl),padding='valid',activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2,2)))
-    model.add(Conv2D(64,(5,5),strides=(1,1),padding='valid',activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2,2)))
-    model.add(Flatten())
-    model.add(Dense(100,activation='relu'))
-    model.add(Dense(num_classes,activation='softmax'))
+def Conv2d_BN(x, nb_filter,kernel_size, padding='same',strides=(1,1)):
+    x = Conv2D(nb_filter,kernel_size,padding=padding,strides=strides,activation='relu')(x)
+    x = BatchNormalization(axis=3)(x)
+    return x
+ 
+def Inception(x,nb_filter):
+    branch1x1 = Conv2d_BN(x,nb_filter,(1,1), padding='same',strides=(1,1))
+ 
+    branch3x3 = Conv2d_BN(x,nb_filter,(1,1), padding='same',strides=(1,1))
+    branch3x3 = Conv2d_BN(branch3x3,nb_filter,(3,3), padding='same',strides=(1,1))
+ 
+    branch5x5 = Conv2d_BN(x,nb_filter,(1,1), padding='same',strides=(1,1))
+    branch5x5 = Conv2d_BN(branch5x5,nb_filter,(1,1), padding='same',strides=(1,1))
+ 
+    branchpool = MaxPooling2D(pool_size=(3,3),strides=(1,1),padding='same')(x)
+    branchpool = Conv2d_BN(branchpool,nb_filter,(1,1),padding='same',strides=(1,1))
+ 
+    x = concatenate([branch1x1,branch3x3,branch5x5,branchpool],axis=3)
+    return x
 
-    model.summary()    
+def buildGoogleNetModel(img_height,img_width,img_channl,num_clsasses,num_GPU):
+    inputs = Input(shape = (img_height, img_width,img_channl))
+
+    x = Conv2d_BN(inputs,64,(7,7),strides=(2,2),padding='same')
+    x = MaxPooling2D(pool_size=(3,3),strides=(2,2),padding='same')(x)
+    x = Conv2d_BN(x,192,(3,3),strides=(1,1),padding='same')
+    x = MaxPooling2D(pool_size=(3,3),strides=(2,2),padding='same')(x)
+    x = Inception(x,64)#256
+    x = Inception(x,120)#480
+    x = MaxPooling2D(pool_size=(3,3),strides=(2,2),padding='same')(x)
+    x = Inception(x,128)#512
+    x = Inception(x,128)
+    x = Inception(x,128)
+    x = Inception(x,132)#528
+    x = Inception(x,208)#832
+    x = MaxPooling2D(pool_size=(3,3),strides=(2,2),padding='same')(x)
+    x = Inception(x,208)
+    x = Inception(x,256)#1024
+    x = AveragePooling2D(pool_size=(7,7),strides=(7,7),padding='same')(x)
+    x = Dropout(0.4)(x)
+    x = Dense(1000,activation='relu')(x)
+    outputs = Dense(num_classes,activation='softmax')(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+    model.summary()
+    model = multi_gpu_model(model, gpus=num_GPU)
     model.compile(loss=categorical_crossentropy,
-              optimizer=Adam(lr=0.001),
-              metrics=['accuracy'])
+            optimizer=Adam(lr=0.001),
+            metrics=['accuracy'])
     return model
 
 if __name__ == "__main__":
     #參數設定
-    img_height, img_width, img_channl = 28,28,1 #28,28,1
+    img_height, img_width, img_channl = 224, 224 , 1#224, 224 , 3
     num_classes = 10
-    batch_size = 32
+    batch_size = 8
     epochs = 100
     dataSplitRatio=0.8
     readDataPath = "./../../../Data/"
-    saveModelPath = "./../../../Model/Keras_LeNet"
+    saveModelPath = "./../../../Model/Keras_GoogleNet"
     saveTensorBoardPath = "./../../../Model/TensorBoard"
-    writeLabelPath = "./../../../Model/Keras_LeNet_Classes.txt"
+    writeLabelPath = "./../../../Model/Keras_GoogleNet_Classes.txt"
+    num_GPU = 2
     num_DataAug = 0
 
     #載入資料
     data,label = read_img(readDataPath,img_height,img_width,img_channl,writeLabelPath)
-    
+        
     # #資料增強
     # if(num_DataAug > 0):
     #     print(data.shape)
@@ -171,7 +213,7 @@ if __name__ == "__main__":
     y_train = np_utils.to_categorical(y_train, num_classes)
     y_val = np_utils.to_categorical(y_val, num_classes)
     
-    model = buildLeNetModel(img_height,img_width,img_channl,num_classes)
-    
+    model = buildGoogleNetModel(img_height,img_width,img_channl,num_classes,num_GPU)
+   
     #訓練及保存模型
     saveTrainModels(model,saveModelPath,saveTensorBoardPath,epochs,batch_size,x_train,y_train,x_val,y_val)
