@@ -72,7 +72,7 @@ def ImageDataAugmentation(ImageData,Labels,batch_size,number):
                                    fill_mode='nearest')
                                    
     for i in range(0,number,1): 
-        for batch in datagen.flow(ImageData,Labels, batch_size=5,
+        for batch in datagen.flow(ImageData,Labels, batch_size=batch_size,
                         save_to_dir='./../Temp/', save_prefix='DataAug-', save_format='jpg'):
             x,y=batch
             ImageData = np.append(ImageData, x, axis=0)
