@@ -1,5 +1,5 @@
 import keras
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Flatten, Dense
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, ZeroPadding2D, add
 from tensorflow.keras.losses import categorical_crossentropy
@@ -34,7 +34,7 @@ def Conv_Block_3(inputs, nb_filter, kernel_size, strides = (1, 1), with_conv_sho
         x = add([x, inputs])
         return x
 
-def buildResNetModel_34(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildResNet34Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     x = ZeroPadding2D((3, 3))(inputs)
     x = Conv2d_BN(x, nb_filter = 64, kernel_size = (7, 7), strides = (2, 2), padding = 'valid')
@@ -71,7 +71,7 @@ def buildResNetModel_34(img_height, img_width, img_channl, num_classes, num_GPU)
             metrics = ['accuracy'])
     return model
 
-def buildResNetModel_50(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildResNet50Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     
     x = ZeroPadding2D((3, 3))(inputs)
@@ -109,7 +109,7 @@ def buildResNetModel_50(img_height, img_width, img_channl, num_classes, num_GPU)
             metrics = ['accuracy'])
     return model
 
-def buildResNetModel_101(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildResNet101Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     
     x = ZeroPadding2D((3, 3))(inputs)
@@ -166,7 +166,7 @@ def buildResNetModel_101(img_height, img_width, img_channl, num_classes, num_GPU
             metrics = ['accuracy'])
     return model
 
-def buildResNetModel_152(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildResNet152Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     
     x = ZeroPadding2D((3, 3))(inputs)

@@ -6,14 +6,22 @@ import numpy as np
 import keras
 from keras.utils import np_utils
 from core.main import readImage, ImageDataAugmentation, saveTrainModels
-from core.model import buildLeNetModel
 # from core.main import readImage, saveTrainModels_gen
+
+from core.Model.LeNet import buildLeNetModel
+from core.Model.AlexNet import buildAlexNetModel
+from core.Model.ZFNet import buildZFNetModel
+from core.Model.VGG import buildVGG11Model, buildVGG13Model, buildVGG16Model, buildVGG19Model
+from core.Model.GoogleLeNet import buildGoogleLeNetModel
+from core.Model.ResNet import buildResNet34Model, buildResNet50Model, buildResNet101Model, buildResNet152Model
+from core.Model.ResNetV2 import buildResNetV1Model, buildResNetModel_v2
+from core.Model.SE_ResNet import buildSE_ResNet34Model, buildSE_ResNet50Model, buildSE_ResNet101Model, buildSE_ResNet152Model
 
 if __name__ == "__main__":
     #參數設定
     img_height, img_width, img_channl = 28, 28, 1 #224, 224, 3
     num_classes = 10
-    batch_size = 32
+    batch_size = 16
     epochs = 50
     dataSplitRatio = 0.8
     readDataPath = "./Data/Train/"
@@ -61,6 +69,13 @@ if __name__ == "__main__":
     
     # 建構模型
     model = buildLeNetModel(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildAlexNetModel(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildZFNetModel(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildVGG11Model(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildGoogleLeNetModel(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildResNet34Model(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildResNetV1Model(img_height, img_width, img_channl, num_classes, num_GPU)
+    # model = buildSE_ResNet34Model(img_height, img_width, img_channl, num_classes, num_GPU)
     
     #訓練及保存模型
     saveTrainModels(model, saveModelPath, saveTensorBoardPath, epochs, batch_size, x_train, y_train, x_val, y_val)

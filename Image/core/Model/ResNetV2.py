@@ -1,11 +1,46 @@
 import keras
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Flatten, Dense
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, ZeroPadding2D, add
 from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
 
 #參考 https://keras.io/examples/cifar10_resnet/
+def resnet_layer(inputs, num_filters = 16, kernel_size = 3, strides = 1,
+                 activation = 'relu', batch_normalization = True, conv_first = True):
+    
+    conv = Conv2D(num_filters, kernel_size = kernel_size, strides = strides,
+                  padding = 'same', kernel_initializer = 'he_normal')
+
+    x = inputs
+    if conv_first:
+        x = conv(x)
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation is not None:
+            x = Activation(activation)(x)
+    else:
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation is not None:
+            x = Activation(activation)(x)
+        x = conv(x)
+    return x
+
+def shortcut(input, residual):
+    input_shape = kerasBnd.int_shape(input)
+    residual_shape = kerasBnd.int_shape(residual)
+    stride_width = int(round(input_shape[1] / residual_shape[1]))
+    stride_height = int(round(input_shape[2] / residual_shape[2]))
+    equal_channels = input_shape[3] == residual_shape[3]
+
+    shortcut = input
+    # 判斷兩個tensor是否相同大小，如果不相同則進行Conv2D之後才相加。
+    if stride_width > 1 or stride_height > 1 or not equal_channels:
+        shortcut = Convolution2D(residual_shape[3], kernel_size = (1, 1), strides = (stride_width, stride_height), padding = "valid")(input)
+
+    return add([shortcut, residual])
+
 def buildResNetV1Model(img_height, img_width, img_channl,
                         num_classes, num_GPU, depth = 16):
     inputs = Input(shape = (img_height, img_width, img_channl))
@@ -36,7 +71,7 @@ def buildResNetV1Model(img_height, img_width, img_channl,
                                  activation = None,
                                  batch_normalization = False)
             #合併resNetBlock(shortcut)
-            x = keras.layers.add([x, y])
+            x = add([x, y])
             x = Activation('relu')(x)
         num_filters *= 2
 
@@ -95,7 +130,7 @@ def buildResNetModel_v2(img_height, img_width, img_channl,
                 x = resnet_layer(inputs = x, num_filters = num_filters_out, kernel_size = 1,
                                  strides = strides, activation = None,
                                  batch_normalization = False)
-            x = keras.layers.add([x, y])
+            x = add([x, y])
 
         num_filters_in = num_filters_out
 
@@ -118,17 +153,3 @@ def buildResNetModel_v2(img_height, img_width, img_channl,
               optimizer = Adam(lr = 0.001),#0.001
               metrics = ['accuracy'])
     return model
-
-def shortcut(input, residual):
-    input_shape = kerasBnd.int_shape(input)
-    residual_shape = kerasBnd.int_shape(residual)
-    stride_width = int(round(input_shape[1] / residual_shape[1]))
-    stride_height = int(round(input_shape[2] / residual_shape[2]))
-    equal_channels = input_shape[3] == residual_shape[3]
-
-    shortcut = input
-    # 判斷兩個tensor是否相同大小，如果不相同則進行Conv2D之後才相加。
-    if stride_width > 1 or stride_height > 1 or not equal_channels:
-        shortcut = Convolution2D(residual_shape[3], kernel_size = (1, 1), strides = (stride_width, stride_height), padding = "valid")(input)
-
-    return add([shortcut, residual])

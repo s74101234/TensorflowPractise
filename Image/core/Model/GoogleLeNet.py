@@ -1,5 +1,5 @@
 import keras
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Flatten, Dense
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, ZeroPadding2D, concatenate, Dropout
 from tensorflow.keras.losses import categorical_crossentropy
@@ -46,6 +46,7 @@ def buildGoogleLeNetModel(img_height, img_width, img_channl, num_classes, num_GP
     x = Inception(x, 256)
     x = AveragePooling2D(pool_size = (7, 7), strides = (7, 7), padding = 'same')(x)
     x = Dropout(0.4)(x)
+    x = Flatten()(x)
     x = Dense(1000, activation = 'relu')(x)
     outputs = Dense(num_classes, activation = 'softmax')(x)
 

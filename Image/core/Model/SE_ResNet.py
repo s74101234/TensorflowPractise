@@ -1,5 +1,5 @@
 import keras
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Flatten, Dense
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, ZeroPadding2D, add
 from tensorflow.keras.losses import categorical_crossentropy
@@ -11,7 +11,7 @@ from keras import backend as K
 
 #參考 https://blog.csdn.net/wmy199216/article/details/71171401
 #參考 https://github.com/titu1994/keras-squeeze-excite-network
-def squeeze_excite_block(input, ratio=16):
+def squeeze_excite_block(input, ratio = 16):
     ''' Create a channel-wise squeeze-excite block
     Args:
         input: input tensor
@@ -22,7 +22,7 @@ def squeeze_excite_block(input, ratio=16):
     '''
     init = input
     channel_axis = 1 if K.image_data_format() == "channels_first" else -1
-    filters = init._keras_shape[channel_axis]
+    filters = init.shape[channel_axis]
     se_shape = (1, 1, filters)
 
     se = GlobalAveragePooling2D()(init)
@@ -66,7 +66,7 @@ def Conv_Block_3(inputs, nb_filter, kernel_size, strides = (1, 1), with_conv_sho
         x = add([x, inputs])
         return x
 
-def buildSE_ResNetModel_34(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildSE_ResNet34Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     x = ZeroPadding2D((3, 3))(inputs)
     x = Conv2d_BN(x, nb_filter = 64, kernel_size = (7, 7), strides = (2, 2), padding = 'valid')
@@ -103,7 +103,7 @@ def buildSE_ResNetModel_34(img_height, img_width, img_channl, num_classes, num_G
             metrics = ['accuracy'])
     return model
 
-def buildSE_ResNetModel_50(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildSE_ResNet50Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     
     x = ZeroPadding2D((3, 3))(inputs)
@@ -141,7 +141,7 @@ def buildSE_ResNetModel_50(img_height, img_width, img_channl, num_classes, num_G
             metrics = ['accuracy'])
     return model
 
-def buildSE_ResNetModel_101(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildSE_ResNet101Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     
     x = ZeroPadding2D((3, 3))(inputs)
@@ -198,7 +198,7 @@ def buildSE_ResNetModel_101(img_height, img_width, img_channl, num_classes, num_
             metrics = ['accuracy'])
     return model
 
-def buildSE_ResNetModel_152(img_height, img_width, img_channl, num_classes, num_GPU):
+def buildSE_ResNet152Model(img_height, img_width, img_channl, num_classes, num_GPU):
     inputs = Input(shape = (img_height, img_width, img_channl))
     
     x = ZeroPadding2D((3, 3))(inputs)
