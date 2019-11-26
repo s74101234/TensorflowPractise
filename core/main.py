@@ -6,8 +6,8 @@ import numpy as np
 import keras
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 #讀取圖片
 def readImage(path, img_height, img_width, img_channl, writeClassNamePath = None):
@@ -75,54 +75,67 @@ def saveTrainModels_gen(model, saveModelPath, saveTensorBoardPath, epochs, batch
                     shear_range = 0.1, zoom_range = 0.1, horizontal_flip = True, fill_mode = 'nearest'):
 	# DataGen
     datagen = ImageDataGenerator(rotation_range = rotation_range,
-                                    width_shift_range = width_shift_range,
-                                    height_shift_range = height_shift_range,
-                                    shear_range = shear_range,
-                                    zoom_range = zoom_range,
-                                    horizontal_flip = horizontal_flip,
-                                    fill_mode = fill_mode)
+                                width_shift_range = width_shift_range,
+                                height_shift_range = height_shift_range,
+                                shear_range = shear_range,
+                                zoom_range = zoom_range,
+                                horizontal_flip = horizontal_flip,
+                                fill_mode = fill_mode)
 
-    #TensorBoard
+    #設置TensorBoard
     tbCallBack = TensorBoard(log_dir = saveTensorBoardPath, batch_size = batch_size,
-                 write_graph = True, write_grads = True, write_images = True,
-                 embeddings_freq = 0, embeddings_layer_names = None, embeddings_metadata = None)
+                            write_graph = True, write_grads = True, write_images = True,
+                            embeddings_freq = 0, embeddings_layer_names = None, embeddings_metadata = None)
 
     #設置checkpoint
     checkpoint = ModelCheckpoint(
-            monitor = 'val_accuracy', verbose = 1, 
-            save_best_only = True, mode = 'max',
-            filepath = ('%s_{epoch:02d}_{accuracy:.4f}_{val_accuracy:.4f}.h5' %(saveModelPath)))
-    callbacks_list = [checkpoint, tbCallBack]
-    
+                            monitor = 'val_accuracy', verbose = 1, 
+                            save_best_only = True, mode = 'max',
+                            filepath = ('%s_{epoch:02d}_{accuracy:.4f}_{val_accuracy:.4f}.h5' %(saveModelPath)))
+
+    #設置ReduceLROnPlateau
+    Reduce = ReduceLROnPlateau(monitor = 'val_accuracy', factor = 0.9, patience = 5, cooldown = 1, verbose = 1)
+
+    #設置EarlyStopping
+    Early = EarlyStopping(monitor = 'val_accuracy', patience = 25, verbose = 1)
+
+    callbacks_list = [checkpoint, tbCallBack, Reduce, Early]
+
     #訓練模型
     model.fit_generator(datagen.flow(x_train, y_train, batch_size = batch_size),
-              steps_per_epoch = len(x_train),
-              epochs = epochs,
-              verbose = 1,
-              shuffle = True,
-              validation_data = (x_val, y_val),
-              callbacks = callbacks_list)
+                steps_per_epoch = len(x_train),
+                epochs = epochs,
+                verbose = 1,
+                shuffle = True,
+                validation_data = (x_val, y_val),
+                callbacks = callbacks_list)
     
 def saveTrainModels(model, saveModelPath, saveTensorBoardPath, epochs, batch_size,
                     x_train, y_train, x_val, y_val):
-    #TensorBoard
-	tbCallBack = TensorBoard(log_dir = saveTensorBoardPath, batch_size = batch_size,
-				write_graph = True, write_grads = True, write_images = True,
-				embeddings_freq = 0, embeddings_layer_names = None, embeddings_metadata = None)
+    #設置TensorBoard
+    tbCallBack = TensorBoard(log_dir = saveTensorBoardPath, batch_size = batch_size,
+                            write_graph = True, write_grads = True, write_images = True,
+                            embeddings_freq = 0, embeddings_layer_names = None, embeddings_metadata = None)
 
     #設置checkpoint
-	checkpoint = ModelCheckpoint(
-			monitor = 'val_accuracy', verbose = 1, 
-			save_best_only = True, mode = 'max',
-			filepath = ('%s_{epoch:02d}_{accuracy:.4f}_{val_accuracy:.4f}.h5' %(saveModelPath)))
-	callbacks_list = [checkpoint,tbCallBack]
-    
+    checkpoint = ModelCheckpoint(
+                            monitor = 'val_accuracy', verbose = 1, 
+                            save_best_only = True, mode = 'max',
+                            filepath = ('%s_{epoch:02d}_{accuracy:.4f}_{val_accuracy:.4f}.h5' %(saveModelPath)))
+
+    #設置ReduceLROnPlateau
+    Reduce = ReduceLROnPlateau(monitor = 'val_accuracy', factor = 0.9, patience = 5, cooldown = 1, verbose = 1)
+
+    #設置EarlyStopping
+    Early = EarlyStopping(monitor = 'val_accuracy', patience = 25, verbose = 1)
+
+    callbacks_list = [checkpoint, tbCallBack, Reduce, Early]
+
     #訓練模型
-	model.fit(x_train, y_train,
-				batch_size = batch_size,
-				nb_epoch = epochs,
-				verbose = 1,
-				shuffle = True,
-				validation_data = (x_val, y_val),
-				callbacks = callbacks_list)
-    
+    model.fit(x_train, y_train,
+                batch_size = batch_size,
+                nb_epoch = epochs,
+                verbose = 1,
+                shuffle = True,
+                validation_data = (x_val, y_val),
+                callbacks = callbacks_list)

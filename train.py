@@ -6,7 +6,7 @@ import numpy as np
 import keras
 from keras.utils import np_utils
 from core.main import readImage, ImageDataAugmentation, saveTrainModels
-# from core.main import readImage, saveTrainModels_gen
+from core.main import readImage, saveTrainModels_gen
 
 from core.Model.LeNet import buildLeNetModel
 from core.Model.AlexNet import buildAlexNetModel
