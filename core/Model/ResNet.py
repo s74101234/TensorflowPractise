@@ -4,6 +4,7 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Fla
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, ZeroPadding2D, add
 from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
+from tensroflow.keras.utils import multi_gpu_model
 
 #參考 https://blog.csdn.net/wmy199216/article/details/71171401
 def Conv2d_BN(x, nb_filter, kernel_size, strides = (1,1), padding = 'same'):

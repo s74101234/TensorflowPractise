@@ -4,6 +4,7 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Fla
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, ZeroPadding2D, add
 from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
+from tensroflow.keras.utils import multi_gpu_model
 
 # SENet 
 from tensorflow.keras.layers import GlobalAveragePooling2D, Reshape, Dense, multiply, add, Permute, Conv2D

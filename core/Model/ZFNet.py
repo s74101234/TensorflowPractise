@@ -3,6 +3,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Activation, Flatten, Dense, Dropout
 from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
+from tensroflow.keras.utils import multi_gpu_model
 
 #參考https://blog.csdn.net/wmy199216/article/details/71171401
 def buildZFNetModel(img_height, img_width, img_channl, num_classes, num_GPU):
