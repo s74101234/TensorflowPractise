@@ -36,13 +36,17 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import multi_gpu_model
 
 def buildKerasAppModel(img_height, img_width, img_channl, num_classes, num_GPU):
-    inputs = Input(shape = (img_height, img_width, img_channl))
     FreezeNum = 0
-    AppModel = MobileNetV2(include_top=False, pooling='avg', weights='imagenet')
+    # inputs = Input(shape = (img_height, img_width, img_channl))
+    # AppModel = MobileNetV2(include_top=False, pooling='avg', weights='imagenet', input_shape=inputs)
+    AppModel = MobileNetV2(include_top = False, pooling = 'avg', weights = 'imagenet')
+
+    # Freeze
     for idx, layer in enumerate(AppModel.layers):
         layer.trainable = False
         if(idx == StopNum):
             break
+
     x = AppModel.layers[-1].output
     x = Flatten()(x)
     x = BatchNormalization()(x)
@@ -53,8 +57,8 @@ def buildKerasAppModel(img_height, img_width, img_channl, num_classes, num_GPU):
     model.summary()
     if(num_GPU > 1):
         model = multi_gpu_model(model, gpus = num_GPU)
-    #binary_crossentropy , sparse_categorical_crossentropy
-    model.compile(loss = 'binary_crossentropy',
+    #categorical_crossentropy , sparse_categorical_crossentropy
+    model.compile(loss = 'categorical_crossentropy',
             optimizer = Adam(lr = 1e-5),
             metrics = ['accuracy'])
     return model
