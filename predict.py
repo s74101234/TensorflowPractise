@@ -37,7 +37,7 @@ if __name__ == "__main__":
     img_height, img_width, img_channl = 28, 28 , 1
     readDataPath = "./Data/Test/"
     readClassPath = "./Model/Keras_LeNet_Classes.txt"
-    loadModelPath = "./Model/Keras_LeNet_01_0.1021_0.0833.h5"
+    loadModelPath = "./Model/Keras_LeNet.h5"
 
     #載入資料
     data, label, fileName = readImage(readDataPath, img_height, img_width, readClassPath)
