@@ -25,11 +25,28 @@ if __name__ == "__main__":
     epochs = 50
     dataSplitRatio = 0.8
     readDataPath = "./Data/Train/"
+    savePath = "./Model/"
     saveModelPath = "./Model/Keras_LeNet"
     saveTensorBoardPath = "./Model/Tensorboard/"
     writeLabelPath = "./Model/Keras_LeNet_Classes.txt"
     num_GPU = 1
     num_DataAug = 0
+    
+    if not os.path.exists(savePath):
+         os.mkdir(savePath)
+    if not os.path.exists(saveTensorBoardPath):
+         os.mkdir(saveTensorBoardPath)
+
+    #Revicing the bug of TensorBoard of TF2
+    tfPath01 = saveTensorBoardPath + '/train'
+    tfPath02 = saveTensorBoardPath + '/train/plugins'
+    tfPath03 = saveTensorBoardPath + '/train/plugins/profile'
+    if not os.path.exists(tfPath01):
+        os.mkdir(tfPath01)
+    if not os.path.exists(tfPath02):
+        os.mkdir(tfPath02)
+    if not os.path.exists(tfPath03):
+        os.mkdir(tfPath03)
 
     #載入資料
     data, label = readImage(readDataPath, img_height, img_width, img_channl, writeLabelPath)
